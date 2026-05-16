@@ -983,6 +983,29 @@
     color: #991b1b;
   }
   .signin-status strong { font-weight: 600; }
+  .code-input {
+    text-align: center;
+    letter-spacing: 0.35em;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    padding: 12px 10px;
+  }
+  .text-link {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: 10px;
+    background: transparent;
+    border: none;
+    padding: 4px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .text-link:hover { color: var(--text); }
   .account-email-row {
     display: flex;
     align-items: center;
@@ -1250,12 +1273,23 @@
           <div class="account-popover" id="account-popover" hidden role="dialog" aria-label="Account">
             <div id="account-signin">
               <div class="popover-title">Sign in to Doodlecraft</div>
-              <div class="popover-sub">Save your presets and pick up where you left off — no password, just a magic link in your inbox.</div>
+              <div class="popover-sub">Save your presets and pick up where you left off — no password, just a 6-digit code in your inbox.</div>
               <form class="signin-form" id="signin-form" novalidate>
                 <input class="signin-input" id="signin-email" type="email" placeholder="you@example.com" autocomplete="email" required />
-                <button type="submit" class="btn btn-primary signin-submit" id="signin-submit">Send magic link</button>
+                <button type="submit" class="btn btn-primary signin-submit" id="signin-submit">Send code</button>
               </form>
               <div class="signin-status" id="signin-status" hidden></div>
+            </div>
+
+            <div id="account-verify" hidden>
+              <div class="popover-title">Check your inbox</div>
+              <div class="popover-sub">Enter the 6-digit code sent to <strong id="account-verify-email"></strong>.</div>
+              <form class="signin-form" id="verify-form" novalidate>
+                <input class="signin-input code-input" id="verify-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" required />
+                <button type="submit" class="btn btn-primary signin-submit" id="verify-submit">Verify</button>
+              </form>
+              <button type="button" class="text-link" id="verify-back">Use a different email</button>
+              <div class="signin-status" id="verify-status" hidden></div>
             </div>
 
             <div id="account-loggedin" hidden>
@@ -1291,6 +1325,7 @@
   const accountBtnLabel = document.getElementById('account-btn-label');
   const accountPopover = document.getElementById('account-popover');
   const accountSignin = document.getElementById('account-signin');
+  const accountVerify = document.getElementById('account-verify');
   const accountLoggedin = document.getElementById('account-loggedin');
   const accountEmailText = document.getElementById('account-email-text');
   const accountAvatar = document.getElementById('account-avatar');
@@ -1298,7 +1333,15 @@
   const signinEmail = document.getElementById('signin-email');
   const signinSubmit = document.getElementById('signin-submit');
   const signinStatus = document.getElementById('signin-status');
+  const verifyForm = document.getElementById('verify-form');
+  const verifyCode = document.getElementById('verify-code');
+  const verifySubmit = document.getElementById('verify-submit');
+  const verifyStatus = document.getElementById('verify-status');
+  const verifyBack = document.getElementById('verify-back');
+  const verifyEmailLabel = document.getElementById('account-verify-email');
   const signoutBtn = document.getElementById('signout-btn');
+
+  let pendingEmail = '';
 
   function setBtnAvatar(email) {
     accountBtnLabel.innerHTML = '';
@@ -1308,6 +1351,12 @@
     accountBtnLabel.appendChild(av);
   }
 
+  function showView(view) {
+    accountSignin.hidden = view !== 'signin';
+    accountVerify.hidden = view !== 'verify';
+    accountLoggedin.hidden = view !== 'loggedin';
+  }
+
   function renderAuth(session) {
     const user = session?.user;
     if (user) {
@@ -1315,14 +1364,13 @@
       setBtnAvatar(email);
       accountEmailText.textContent = email;
       accountAvatar.textContent = (email[0] || '?').toUpperCase();
-      accountSignin.hidden = true;
-      accountLoggedin.hidden = false;
+      showView('loggedin');
     } else {
       accountBtnLabel.textContent = 'Sign in';
-      accountSignin.hidden = false;
-      accountLoggedin.hidden = true;
       signinStatus.hidden = true;
-      signinForm.hidden = false;
+      verifyStatus.hidden = true;
+      verifyCode.value = '';
+      showView('signin');
     }
   }
 
@@ -1358,20 +1406,59 @@
     try {
       const { error } = await sb.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: window.location.origin + window.location.pathname },
+        options: { shouldCreateUser: true },
       });
       if (error) throw error;
-      signinForm.hidden = true;
-      signinStatus.innerHTML = `<strong>Check your inbox.</strong> We sent a magic link to ${email}. Click it to sign in.`;
-      signinStatus.hidden = false;
+      pendingEmail = email;
+      verifyEmailLabel.textContent = email;
+      verifyStatus.hidden = true;
+      verifyCode.value = '';
+      showView('verify');
+      setTimeout(() => verifyCode.focus(), 50);
     } catch (err) {
       signinStatus.classList.add('error');
-      signinStatus.textContent = err.message || 'Could not send magic link. Try again.';
+      signinStatus.textContent = err.message || 'Could not send code. Try again.';
       signinStatus.hidden = false;
     } finally {
       signinSubmit.disabled = false;
-      signinSubmit.textContent = 'Send magic link';
+      signinSubmit.textContent = 'Send code';
     }
+  });
+
+  verifyForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const token = verifyCode.value.trim();
+    if (!token || !pendingEmail) return;
+    verifySubmit.disabled = true;
+    verifySubmit.textContent = 'Verifying…';
+    verifyStatus.hidden = true;
+    verifyStatus.classList.remove('error');
+    try {
+      const { error } = await sb.auth.verifyOtp({
+        email: pendingEmail,
+        token,
+        type: 'email',
+      });
+      if (error) throw error;
+      // onAuthStateChange will fire and renderAuth will switch the view.
+      closePopover();
+    } catch (err) {
+      verifyStatus.classList.add('error');
+      verifyStatus.textContent = err.message || 'Invalid or expired code. Try again.';
+      verifyStatus.hidden = false;
+    } finally {
+      verifySubmit.disabled = false;
+      verifySubmit.textContent = 'Verify';
+    }
+  });
+
+  verifyBack.addEventListener('click', () => {
+    pendingEmail = '';
+    signinStatus.hidden = true;
+    verifyStatus.hidden = true;
+    verifyCode.value = '';
+    showView('signin');
+    setTimeout(() => signinEmail.focus(), 50);
   });
 
   signoutBtn.addEventListener('click', async () => {
