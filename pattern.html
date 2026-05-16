@@ -518,6 +518,75 @@
   }
   .harmony-add-all:hover { background: var(--text); color: var(--surface); border-color: var(--text); }
 
+  /* Scheme picker (unified palette) */
+  .scheme-select {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 4px 22px 4px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 5px;
+    background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' stroke='%23737373' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat right 6px center;
+    background-size: 10px;
+    color: var(--text);
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    outline: none;
+  }
+  .scheme-select:focus { border-color: var(--text); }
+
+  .scheme-base-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+  .scheme-base-row:hover { border-color: var(--border-strong); }
+  .scheme-base-swatch {
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .scheme-base-hex {
+    font-size: 13px;
+    font-weight: 500;
+  }
+  #scheme-from-image {
+    margin-left: auto;
+  }
+
+  .scheme-swatches {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .scheme-swatch {
+    aspect-ratio: 1;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.08);
+    position: relative;
+    background-clip: padding-box;
+  }
+  .scheme-swatch::after {
+    content: attr(data-hex);
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+  }
+  .scheme-swatch:hover::after { opacity: 1; }
+
   /* Color wheel popover */
   .wheel-popover {
     position: fixed;
@@ -955,14 +1024,28 @@
       <div class="section color-only" id="palette-section">
         <div class="section-head">
           <div class="section-label">Palette</div>
-          <button class="section-action" id="palette-pick-source" title="Pick palette from source image" hidden>
+          <select class="scheme-select" id="scheme-select" aria-label="Color scheme">
+            <option value="monochrome">Monochromatic</option>
+            <option value="analogous" selected>Analogous</option>
+            <option value="complementary">Complementary</option>
+            <option value="triadic">Triadic</option>
+            <option value="split">Split-complement</option>
+            <option value="tetradic">Tetradic</option>
+          </select>
+        </div>
+
+        <div class="scheme-base-row">
+          <label class="color-swatch scheme-base-swatch" id="scheme-base-swatch" style="background:#FF8A5B" title="Drag the picker or type a hex to change the base color">
+            <input type="color" id="scheme-base-color" value="#FF8A5B" />
+          </label>
+          <input type="text" class="color-hex scheme-base-hex" id="scheme-base-hex" value="#FF8A5B" maxlength="7" aria-label="Base color hex" />
+          <button class="section-action" id="scheme-from-image" title="Pick base color from source image" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a1 1 0 0 1-1-1v-4a1 1 0 0 1 .5-.866L19 11"/><path d="M5 11l7 4 7-4"/><path d="M5 11a7 7 0 1 1 14 0"/></svg>
             <span>From image</span>
           </button>
         </div>
-        <div class="palette-rows" id="palette-rows"></div>
-        <button class="add-stop" id="add-palette-color">+ Add color</button>
-        <div class="shape-hint">When palette has colors, tiles use the nearest match instead of the raw source color.</div>
+
+        <div class="scheme-swatches" id="scheme-swatches" aria-label="Generated palette"></div>
       </div>
 
       <div class="section">
@@ -1002,29 +1085,6 @@
           </div>
         </div>
 
-        <div class="harmony-block color-only">
-          <div class="harmony-header">
-            <span class="harmony-label">Harmony</span>
-            <select class="harmony-rule" id="harmony-rule">
-              <option value="none">None</option>
-              <option value="complementary">Complementary</option>
-              <option value="analogous">Analogous</option>
-              <option value="triadic">Triadic</option>
-              <option value="split">Split-complement</option>
-              <option value="tetradic">Tetradic</option>
-              <option value="monochrome">Monochromatic</option>
-            </select>
-          </div>
-          <div class="color-row">
-            <span class="color-row-label">Base</span>
-            <label class="color-swatch" id="harmony-base-swatch" style="background:#FF8A5B">
-              <input type="color" id="harmony-base-color" value="#FF8A5B" />
-            </label>
-            <input type="text" class="color-hex" id="harmony-base-hex" value="#FF8A5B" maxlength="7" />
-          </div>
-          <div class="harmony-swatches" id="harmony-swatches"></div>
-          <button class="harmony-add-all" id="harmony-add-all" hidden>Add all to palette</button>
-        </div>
       </div>
 
       <div class="section">
@@ -1184,7 +1244,9 @@
     randomRotation: false,
     randomSize: false,
     randomOpacity: false,
-    palette: [],            // [hex, ...] — when non-empty, tiles use nearest palette color
+    schemeName: 'analogous', // monochrome | analogous | complementary | triadic | split | tetradic
+    schemeBase: '#FF8A5B',   // drives the generated palette
+    palette: [],             // [hex, ...] — auto-derived from schemeName + schemeBase
     noise: 0,
     grain: 1.0,
     width: 1200,
@@ -1637,71 +1699,110 @@
   }
 
   // ---- Palette ----
-  const paletteRowsEl = document.getElementById('palette-rows');
-  const addPaletteBtn = document.getElementById('add-palette-color');
-  const paletteSourceBtn = document.getElementById('palette-pick-source');
+  // ---- Unified palette (scheme picker drives state.palette) ----
+  const schemeSelect = document.getElementById('scheme-select');
+  const schemeBaseSwatch = document.getElementById('scheme-base-swatch');
+  const schemeBaseColor = document.getElementById('scheme-base-color');
+  const schemeBaseHex = document.getElementById('scheme-base-hex');
+  const schemeSwatchesEl = document.getElementById('scheme-swatches');
+  const schemeFromImageBtn = document.getElementById('scheme-from-image');
 
-  function renderPaletteRows() {
-    paletteRowsEl.innerHTML = '';
-    state.palette.forEach((hex, idx) => {
-      const row = document.createElement('div');
-      row.className = 'palette-row';
-      row.innerHTML = `
-        <button type="button" class="color-swatch palette-swatch" style="background:${hex}" data-idx="${idx}" title="Open color wheel" aria-label="Open color wheel"></button>
-        <input type="text" class="color-hex" value="${hex}" data-idx="${idx}" maxlength="7" />
-        <button class="stop-remove" data-idx="${idx}" title="Remove">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      `;
-      paletteRowsEl.appendChild(row);
-    });
+  const SCHEMES = {
+    monochrome:    (h, s)    => [25, 40, 55, 70, 85].map(ll => [h, s, ll]),
+    analogous:     (h, s, l) => [-60, -30, 0, 30, 60].map(d => [(h + d + 360) % 360, s, l]),
+    complementary: (h, s, l) => [
+      [h, s, Math.max(15, l - 25)],
+      [h, s, l],
+      [h, s, Math.min(85, l + 20)],
+      [(h + 180) % 360, s, l],
+      [(h + 180) % 360, s, Math.max(15, l - 25)],
+    ],
+    triadic: (h, s, l) => [
+      [h, s, l],
+      [h, s, Math.min(85, l + 20)],
+      [(h + 120) % 360, s, l],
+      [(h + 240) % 360, s, l],
+      [(h + 240) % 360, s, Math.max(15, l - 20)],
+    ],
+    split: (h, s, l) => [
+      [h, s, l],
+      [h, s, Math.min(85, l + 20)],
+      [(h + 150) % 360, s, l],
+      [(h + 210) % 360, s, l],
+      [(h + 210) % 360, s, Math.max(15, l - 20)],
+    ],
+    tetradic: (h, s, l) => [
+      [h, s, l],
+      [(h + 90) % 360, s, l],
+      [(h + 180) % 360, s, l],
+      [(h + 270) % 360, s, l],
+      [h, s, Math.min(85, l + 20)],
+    ],
+  };
 
-    paletteRowsEl.querySelectorAll('.palette-swatch').forEach(el => {
-      el.addEventListener('click', e => {
-        const i = +e.currentTarget.dataset.idx;
-        openWheel(i, e.currentTarget);
-      });
-    });
-
-    paletteRowsEl.querySelectorAll('.color-hex').forEach(el => {
-      el.addEventListener('change', e => {
-        const i = +e.target.dataset.idx;
-        const v = e.target.value.trim();
-        if (/^#?[0-9A-Fa-f]{6}$/.test(v)) {
-          state.palette[i] = (v.startsWith('#') ? v : '#'+v).toUpperCase();
-          renderPaletteRows();
-          scheduleRender();
-        } else {
-          e.target.value = state.palette[i];
-        }
-      });
-    });
-
-    paletteRowsEl.querySelectorAll('.stop-remove').forEach(el => {
-      el.addEventListener('click', e => {
-        const i = +e.currentTarget.dataset.idx;
-        state.palette.splice(i, 1);
-        renderPaletteRows();
-        scheduleRender();
-      });
-    });
+  function regeneratePalette() {
+    const fn = SCHEMES[state.schemeName] || SCHEMES.analogous;
+    const rgb = hexToRgb(state.schemeBase);
+    const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    state.palette = fn(h, s, l).map(([hh, ss, ll]) => hslToHex(hh, ss, ll));
+    renderSchemeSwatches();
+    schemeBaseSwatch.style.background = state.schemeBase;
+    if (schemeBaseColor.value.toUpperCase() !== state.schemeBase) {
+      schemeBaseColor.value = state.schemeBase;
+    }
+    if (schemeBaseHex.value.toUpperCase() !== state.schemeBase) {
+      schemeBaseHex.value = state.schemeBase;
+    }
+    if (schemeSelect.value !== state.schemeName) {
+      schemeSelect.value = state.schemeName;
+    }
   }
 
-  addPaletteBtn.addEventListener('click', () => {
-    state.palette.push(randomHex());
-    renderPaletteRows();
+  function renderSchemeSwatches() {
+    schemeSwatchesEl.innerHTML = '';
+    for (const hex of state.palette) {
+      const sw = document.createElement('div');
+      sw.className = 'scheme-swatch';
+      sw.style.background = hex;
+      sw.dataset.hex = hex;
+      schemeSwatchesEl.appendChild(sw);
+    }
+  }
+
+  schemeSelect.addEventListener('change', e => {
+    state.schemeName = e.target.value;
+    regeneratePalette();
     scheduleRender();
   });
 
-  function updatePaletteSourceBtn() {
-    paletteSourceBtn.hidden = !(state.image || sourceVideo);
+  schemeBaseColor.addEventListener('input', e => {
+    state.schemeBase = e.target.value.toUpperCase();
+    regeneratePalette();
+    scheduleRender();
+  });
+
+  schemeBaseHex.addEventListener('change', e => {
+    const v = e.target.value.trim();
+    if (/^#?[0-9A-Fa-f]{6}$/.test(v)) {
+      state.schemeBase = (v.startsWith('#') ? v : '#'+v).toUpperCase();
+      regeneratePalette();
+      scheduleRender();
+    } else {
+      e.target.value = state.schemeBase;
+    }
+  });
+
+  function updateSchemeFromImageBtn() {
+    schemeFromImageBtn.hidden = !(state.image || sourceVideo);
   }
 
-  paletteSourceBtn.addEventListener('click', () => {
+  schemeFromImageBtn.addEventListener('click', () => {
     const src = state.image || sourceVideo;
     if (!src) return;
-    state.palette = extractPaletteFromImage(src, 5);
-    renderPaletteRows();
+    const dominant = extractPaletteFromImage(src, 1)[0];
+    if (!dominant) return;
+    state.schemeBase = dominant.toUpperCase();
+    regeneratePalette();
     scheduleRender();
   });
 
@@ -1905,91 +2006,6 @@
     }
   });
 
-  // ---- Color harmony (inline in Colors section) ----
-  const harmonyRuleEl = document.getElementById('harmony-rule');
-  const harmonySwatchesEl = document.getElementById('harmony-swatches');
-  const harmonyAddAllBtn = document.getElementById('harmony-add-all');
-  const harmonyBaseColor = document.getElementById('harmony-base-color');
-  const harmonyBaseHex = document.getElementById('harmony-base-hex');
-  const harmonyBaseSwatch = document.getElementById('harmony-base-swatch');
-
-  const HARMONIES = {
-    none: () => [],
-    complementary: (h, s, l) => [[h, s, l], [(h + 180) % 360, s, l]],
-    analogous:     (h, s, l) => [[(h - 30 + 360) % 360, s, l], [h, s, l], [(h + 30) % 360, s, l]],
-    triadic:       (h, s, l) => [[h, s, l], [(h + 120) % 360, s, l], [(h + 240) % 360, s, l]],
-    split:         (h, s, l) => [[h, s, l], [(h + 150) % 360, s, l], [(h + 210) % 360, s, l]],
-    tetradic:      (h, s, l) => [[h, s, l], [(h + 90) % 360, s, l], [(h + 180) % 360, s, l], [(h + 270) % 360, s, l]],
-    monochrome:    (h, s, l) => [25, 40, 55, 70, 85].map(ll => [h, s, ll]),
-  };
-
-  let harmonyBase = '#FF8A5B';
-  let harmonyRule = 'none';
-
-  function computeHarmonyColors() {
-    const fn = HARMONIES[harmonyRule];
-    if (!fn) return [];
-    const rgb = hexToRgb(harmonyBase);
-    const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
-    return fn(h, s, l).map(([hh, ss, ll]) => hslToHex(hh, ss, ll));
-  }
-
-  function renderHarmony() {
-    const colors = computeHarmonyColors();
-    harmonySwatchesEl.innerHTML = '';
-    if (!colors.length) {
-      harmonyAddAllBtn.hidden = true;
-      return;
-    }
-    harmonyAddAllBtn.hidden = false;
-    colors.forEach(hex => {
-      const btn = document.createElement('button');
-      btn.className = 'harmony-swatch';
-      btn.type = 'button';
-      btn.style.background = hex;
-      btn.title = `${hex} — click to add to palette`;
-      if (hex === harmonyBase.toUpperCase()) btn.classList.add('base');
-      btn.addEventListener('click', () => {
-        state.palette.push(hex);
-        renderPaletteRows();
-        scheduleRender();
-        btn.classList.add('added');
-        setTimeout(() => btn.classList.remove('added'), 700);
-      });
-      harmonySwatchesEl.appendChild(btn);
-    });
-  }
-
-  harmonyRuleEl.addEventListener('change', e => {
-    harmonyRule = e.target.value;
-    renderHarmony();
-  });
-
-  harmonyAddAllBtn.addEventListener('click', () => {
-    const colors = computeHarmonyColors();
-    colors.forEach(hex => state.palette.push(hex));
-    renderPaletteRows();
-    scheduleRender();
-  });
-
-  harmonyBaseColor.addEventListener('input', e => {
-    harmonyBase = e.target.value.toUpperCase();
-    harmonyBaseHex.value = harmonyBase;
-    harmonyBaseSwatch.style.background = harmonyBase;
-    renderHarmony();
-  });
-  harmonyBaseHex.addEventListener('change', e => {
-    const v = e.target.value.trim();
-    if (/^#?[0-9A-Fa-f]{6}$/.test(v)) {
-      harmonyBase = (v.startsWith('#') ? v : '#'+v).toUpperCase();
-      harmonyBaseColor.value = harmonyBase;
-      harmonyBaseSwatch.style.background = harmonyBase;
-      renderHarmony();
-    } else {
-      e.target.value = harmonyBase;
-    }
-  });
-
   // Close on outside click / Esc
   document.addEventListener('click', e => {
     if (wheelPopover.hidden) return;
@@ -2059,7 +2075,7 @@
       dropzoneFilled.hidden = false;
       buildSourceData();
       updateShapeUI();
-      updatePaletteSourceBtn();
+      updateSchemeFromImageBtn();
       canvas.parentElement.classList.add('has-image');
       scheduleRender();
     };
@@ -2100,7 +2116,7 @@
       v.play().catch(() => {});
       buildSourceData();
       updateShapeUI();
-      updatePaletteSourceBtn();
+      updateSchemeFromImageBtn();
       updateExportVideoVisibility();
       canvas.parentElement.classList.add('has-image');
       startVideoLoop();
@@ -2156,7 +2172,7 @@
     dropzoneFilled.hidden = true;
     sourceThumb.hidden = true;
     updateShapeUI();
-    updatePaletteSourceBtn();
+    updateSchemeFromImageBtn();
     updateExportVideoVisibility();
     canvas.parentElement.classList.remove('has-image');
     scheduleRender();
@@ -2554,6 +2570,8 @@
       bg: state.bg,
       fg: state.fg,
       inkColor: state.inkColor,
+      schemeName: state.schemeName,
+      schemeBase: state.schemeBase,
       palette: [...state.palette],
       size: state.size,
       spacing: state.spacing,
@@ -2571,11 +2589,15 @@
 
   function applySettings(s) {
     Object.assign(state, s);
-    state.palette = [...(s.palette || [])];
-    // Refresh all UI panels
+    if (!s.schemeBase) {
+      state.schemeBase = (s.palette && s.palette[0]) || '#FF8A5B';
+    }
+    if (!s.schemeName) {
+      state.schemeName = 'analogous';
+    }
     renderLayoutButtons();
     renderDefaultShapes();
-    renderPaletteRows();
+    regeneratePalette();
     document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('width-input').value = state.width;
     document.getElementById('height-input').value = state.height;
@@ -2679,11 +2701,10 @@
   // Init
   renderLayoutButtons();
   renderDefaultShapes();
-  renderPaletteRows();
-  renderHarmony();
+  regeneratePalette();
   renderSaved();
   updateShapeUI();
-  updatePaletteSourceBtn();
+  updateSchemeFromImageBtn();
   updateExportVideoVisibility();
   setColorMode(state.colorMode);
   syncUI();
