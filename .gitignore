@@ -1,0 +1,12 @@
+# Local session state — auto-dumped on /clear, not for the repo
+savepoints/
+
+# macOS
+.DS_Store
+
+# Vercel
+.vercel
+
+# Editor
+.vscode/
+.idea/
