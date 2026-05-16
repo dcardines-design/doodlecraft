@@ -1253,12 +1253,13 @@
     height: 1200,
   };
 
-  const DEFAULT_SHAPES = ['circle', 'square', 'triangle', 'line', 'star', 'heart'];
+  const DEFAULT_SHAPES = ['circle', 'square', 'triangle', 'line', 'x', 'star', 'heart'];
   const SHAPE_ICONS = {
     circle:   `<svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6"/></svg>`,
     square:   `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="1"/></svg>`,
     triangle: `<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="8,2 14,13 2,13"/></svg>`,
     line:     `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="1" width="2" height="14"/><rect x="7" y="1" width="2" height="14"/><rect x="11" y="1" width="2" height="14"/></svg>`,
+    x:        `<svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="6" width="14" height="4" rx="1.5" transform="rotate(45 8 8)"/><rect x="1" y="6" width="14" height="4" rx="1.5" transform="rotate(-45 8 8)"/></svg>`,
     star:     `<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="8,1 9.8,6.2 15.2,6.2 10.9,9.6 12.5,14.8 8,11.6 3.5,14.8 5.1,9.6 0.8,6.2 6.2,6.2"/></svg>`,
     heart:    `<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 14 L1.5 7.5 a3.5 3.5 0 1 1 4.95-4.95 L8 4.1 l1.55-1.55 a3.5 3.5 0 1 1 4.95 4.95 Z"/></svg>`,
   };
@@ -1594,6 +1595,17 @@
         // Width is a fraction of the tile so neighbors don't overlap horizontally.
         ctx.fillRect(-size * 0.18, -size * 0.9, size * 0.36, size * 1.8);
         break;
+      case 'x': {
+        ctx.strokeStyle = fill;
+        ctx.lineCap = 'round';
+        ctx.lineWidth = size * 0.22;
+        const a = r * 0.7;
+        ctx.beginPath();
+        ctx.moveTo(-a, -a); ctx.lineTo(a, a);
+        ctx.moveTo(a, -a);  ctx.lineTo(-a, a);
+        ctx.stroke();
+        break;
+      }
       case 'star':
         drawStar(0, 0, 5, r, r * 0.4);
         break;
