@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg: #fafafa;
@@ -873,6 +874,148 @@
     line-height: 1.5;
   }
 
+  /* Toolbar right group (size controls + account) */
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .toolbar-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+  }
+
+  /* Account button (signed-out shows text, signed-in shows avatar) */
+  .account-wrap { position: relative; }
+  .account-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .account-btn:hover { background: var(--bg); }
+  .account-btn .avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--text);
+    color: var(--surface);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .account-btn .chev {
+    width: 12px;
+    height: 12px;
+    color: var(--text-subtle);
+  }
+
+  /* Popover */
+  .account-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 280px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    padding: 16px;
+    z-index: 30;
+  }
+  .popover-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .popover-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-bottom: 12px;
+  }
+  .signin-form { display: flex; flex-direction: column; gap: 8px; }
+  .signin-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface);
+    outline: none;
+    transition: border-color 0.12s;
+  }
+  .signin-input:focus { border-color: var(--text); }
+  .signin-submit {
+    width: 100%;
+    justify-content: center;
+  }
+  .signin-status {
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .signin-status.error {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+  }
+  .signin-status strong { font-weight: 600; }
+  .account-email-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .account-email-row .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--text);
+    color: var(--surface);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .account-email-text {
+    font-size: 12px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+  }
+  .signout-btn { width: 100%; justify-content: center; }
+
   /* Small responsive */
   @media (max-width: 880px) {
     .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
@@ -1066,33 +1209,64 @@
         <span>/</span>
         <strong>Gradient</strong>
       </div>
-      <div class="size-controls">
-        <div class="ratio-picker" id="ratio-picker">
-          <button class="ratio-btn" data-ratio="1:1" title="Square">
-            <span class="ratio-icon" style="width:14px;height:14px"></span>
-            <span>1:1</span>
-          </button>
-          <button class="ratio-btn" data-ratio="4:3" title="4:3">
-            <span class="ratio-icon" style="width:14px;height:10.5px"></span>
-            <span>4:3</span>
-          </button>
-          <button class="ratio-btn" data-ratio="3:4" title="3:4">
-            <span class="ratio-icon" style="width:10.5px;height:14px"></span>
-            <span>3:4</span>
-          </button>
-          <button class="ratio-btn" data-ratio="16:9" title="16:9">
-            <span class="ratio-icon" style="width:16px;height:9px"></span>
-            <span>16:9</span>
-          </button>
-          <button class="ratio-btn" data-ratio="9:16" title="9:16">
-            <span class="ratio-icon" style="width:9px;height:16px"></span>
-            <span>9:16</span>
-          </button>
+      <div class="toolbar-right">
+        <div class="size-controls">
+          <div class="ratio-picker" id="ratio-picker">
+            <button class="ratio-btn" data-ratio="1:1" title="Square">
+              <span class="ratio-icon" style="width:14px;height:14px"></span>
+              <span>1:1</span>
+            </button>
+            <button class="ratio-btn" data-ratio="4:3" title="4:3">
+              <span class="ratio-icon" style="width:14px;height:10.5px"></span>
+              <span>4:3</span>
+            </button>
+            <button class="ratio-btn" data-ratio="3:4" title="3:4">
+              <span class="ratio-icon" style="width:10.5px;height:14px"></span>
+              <span>3:4</span>
+            </button>
+            <button class="ratio-btn" data-ratio="16:9" title="16:9">
+              <span class="ratio-icon" style="width:16px;height:9px"></span>
+              <span>16:9</span>
+            </button>
+            <button class="ratio-btn" data-ratio="9:16" title="9:16">
+              <span class="ratio-icon" style="width:9px;height:16px"></span>
+              <span>9:16</span>
+            </button>
+          </div>
+          <div class="size-divider"></div>
+          <input type="number" class="size-input" id="width-input" value="1200" min="100" max="4000" />
+          <span class="size-x">×</span>
+          <input type="number" class="size-input" id="height-input" value="1200" min="100" max="4000" />
         </div>
-        <div class="size-divider"></div>
-        <input type="number" class="size-input" id="width-input" value="1200" min="100" max="4000" />
-        <span class="size-x">×</span>
-        <input type="number" class="size-input" id="height-input" value="1200" min="100" max="4000" />
+
+        <div class="toolbar-divider"></div>
+
+        <div class="account-wrap">
+          <button class="account-btn" id="account-btn" aria-haspopup="dialog" aria-expanded="false">
+            <span id="account-btn-label">Sign in</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+
+          <div class="account-popover" id="account-popover" hidden role="dialog" aria-label="Account">
+            <div id="account-signin">
+              <div class="popover-title">Sign in to Doodlecraft</div>
+              <div class="popover-sub">Save your presets and pick up where you left off — no password, just a magic link in your inbox.</div>
+              <form class="signin-form" id="signin-form" novalidate>
+                <input class="signin-input" id="signin-email" type="email" placeholder="you@example.com" autocomplete="email" required />
+                <button type="submit" class="btn btn-primary signin-submit" id="signin-submit">Send magic link</button>
+              </form>
+              <div class="signin-status" id="signin-status" hidden></div>
+            </div>
+
+            <div id="account-loggedin" hidden>
+              <div class="account-email-row">
+                <span class="avatar" id="account-avatar"></span>
+                <span class="account-email-text" id="account-email-text"></span>
+              </div>
+              <button class="btn btn-secondary signout-btn" id="signout-btn">Sign out</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="canvas-stage">
@@ -1108,6 +1282,107 @@
 
 <script>
 (() => {
+  // ---- Supabase auth ----
+  const SUPABASE_URL = 'https://yursxfukvkdqumgdllte.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1cnN4ZnVrdmtkcXVtZ2RsbHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5Mzk1MzYsImV4cCI6MjA5NDUxNTUzNn0.tqwNzvR5jmBlP1iz3aDfqEcPIh1AYgeTL_ssML-NpLs';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const accountBtn = document.getElementById('account-btn');
+  const accountBtnLabel = document.getElementById('account-btn-label');
+  const accountPopover = document.getElementById('account-popover');
+  const accountSignin = document.getElementById('account-signin');
+  const accountLoggedin = document.getElementById('account-loggedin');
+  const accountEmailText = document.getElementById('account-email-text');
+  const accountAvatar = document.getElementById('account-avatar');
+  const signinForm = document.getElementById('signin-form');
+  const signinEmail = document.getElementById('signin-email');
+  const signinSubmit = document.getElementById('signin-submit');
+  const signinStatus = document.getElementById('signin-status');
+  const signoutBtn = document.getElementById('signout-btn');
+
+  function setBtnAvatar(email) {
+    accountBtnLabel.innerHTML = '';
+    const av = document.createElement('span');
+    av.className = 'avatar';
+    av.textContent = (email[0] || '?').toUpperCase();
+    accountBtnLabel.appendChild(av);
+  }
+
+  function renderAuth(session) {
+    const user = session?.user;
+    if (user) {
+      const email = user.email || '';
+      setBtnAvatar(email);
+      accountEmailText.textContent = email;
+      accountAvatar.textContent = (email[0] || '?').toUpperCase();
+      accountSignin.hidden = true;
+      accountLoggedin.hidden = false;
+    } else {
+      accountBtnLabel.textContent = 'Sign in';
+      accountSignin.hidden = false;
+      accountLoggedin.hidden = true;
+      signinStatus.hidden = true;
+      signinForm.hidden = false;
+    }
+  }
+
+  function openPopover() {
+    accountPopover.hidden = false;
+    accountBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closePopover() {
+    accountPopover.hidden = true;
+    accountBtn.setAttribute('aria-expanded', 'false');
+  }
+  accountBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    accountPopover.hidden ? openPopover() : closePopover();
+  });
+  document.addEventListener('click', (e) => {
+    if (!accountPopover.hidden && !accountPopover.contains(e.target) && !accountBtn.contains(e.target)) {
+      closePopover();
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !accountPopover.hidden) closePopover();
+  });
+
+  signinForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = signinEmail.value.trim();
+    if (!email) return;
+    signinSubmit.disabled = true;
+    signinSubmit.textContent = 'Sending…';
+    signinStatus.hidden = true;
+    signinStatus.classList.remove('error');
+    try {
+      const { error } = await sb.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.origin + window.location.pathname },
+      });
+      if (error) throw error;
+      signinForm.hidden = true;
+      signinStatus.innerHTML = `<strong>Check your inbox.</strong> We sent a magic link to ${email}. Click it to sign in.`;
+      signinStatus.hidden = false;
+    } catch (err) {
+      signinStatus.classList.add('error');
+      signinStatus.textContent = err.message || 'Could not send magic link. Try again.';
+      signinStatus.hidden = false;
+    } finally {
+      signinSubmit.disabled = false;
+      signinSubmit.textContent = 'Send magic link';
+    }
+  });
+
+  signoutBtn.addEventListener('click', async () => {
+    await sb.auth.signOut();
+    closePopover();
+  });
+
+  sb.auth.getSession().then(({ data }) => renderAuth(data.session));
+  sb.auth.onAuthStateChange((_event, session) => renderAuth(session));
+
+  // ---- Gradient generator ----
   const canvas = document.getElementById('gradient-canvas');
   const ctx = canvas.getContext('2d');
 
