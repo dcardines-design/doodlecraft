@@ -1126,6 +1126,21 @@
           </div>
         </div>
 
+        <div class="mono-only mono-controls">
+          <div class="toggle-row">
+            <span>Invert</span>
+            <button class="toggle" id="mono-invert" aria-pressed="false"></button>
+          </div>
+          <div class="toggle-row">
+            <span>Threshold</span>
+            <button class="toggle" id="mono-threshold" aria-pressed="false"></button>
+          </div>
+          <div class="slider-row" id="mono-threshold-row" hidden>
+            <div class="slider-label"><span>Level</span><span id="mono-threshold-val">50%</span></div>
+            <input type="range" id="mono-threshold-level" min="0" max="100" value="50" />
+          </div>
+        </div>
+
       </div>
 
       <div class="section">
@@ -1158,6 +1173,10 @@
           <div class="toggle-row">
             <span>Random opacity</span>
             <button class="toggle" id="random-opacity" aria-pressed="false"></button>
+          </div>
+          <div class="slider-row" id="random-opacity-row" hidden>
+            <div class="slider-label"><span>Min opacity</span><span id="random-opacity-val">25%</span></div>
+            <input type="range" id="random-opacity-min" min="0" max="100" value="25" />
           </div>
         </div>
       </div>
@@ -1285,6 +1304,9 @@
     defaultShape: 'circle', // primitive shape used to render the pattern
     colorMode: 'color',     // 'color' | 'mono'
     inkColor: '#0A0A0A',    // single ink color used in mono mode
+    monoInvert: false,      // flip source-darkness → ink-coverage mapping
+    monoThreshold: false,   // binary on/off mode (1-bit halftone)
+    monoThresholdLevel: 50, // 0..100, cutoff for threshold mode
     imgX: 0.5,              // 0..1 horizontal source position (object-position semantics)
     imgY: 0.5,              // 0..1 vertical source position
     layout: 'grid',         // grid | staggered | halfdrop | scatter | diamond
@@ -1297,6 +1319,7 @@
     randomRotation: false,
     randomSize: false,
     randomOpacity: false,
+    randomOpacityMin: 25,   // 0..100, minimum opacity when randomOpacity is on
     schemeName: 'analogous', // monochrome | analogous | complementary | triadic | split | tetradic
     schemeBase: '#FF8A5B',   // drives the generated palette
     palette: [],             // [hex, ...] — auto-derived from schemeName + schemeBase
@@ -1583,7 +1606,8 @@
     const sz = state.randomSize
       ? size * (0.6 + rand() * 0.8)
       : size;
-    const alpha = state.randomOpacity ? 0.25 + rand() * 0.75 : 1;
+    const aMin = state.randomOpacityMin / 100;
+    const alpha = state.randomOpacity ? aMin + rand() * (1 - aMin) : 1;
 
     const tx = x + jx, ty = y + jy;
     let fill;
@@ -1592,9 +1616,14 @@
     if (state.colorMode === 'mono') {
       fill = state.inkColor;
       if (sourceData) {
-        // Source darkness → ink coverage (darker = more opaque)
         const lum = sampleLuminance(tx, ty);
-        monoAlpha = 1 - lum / 255;
+        // Coverage = how much ink this tile gets. 1 = full, 0 = none.
+        let coverage = 1 - lum / 255;
+        if (state.monoInvert) coverage = 1 - coverage;
+        if (state.monoThreshold) {
+          coverage = coverage >= state.monoThresholdLevel / 100 ? 1 : 0;
+        }
+        monoAlpha = coverage;
       }
     } else if (sourceData) {
       const sampled = sampleColor(tx, ty);
@@ -2481,7 +2510,45 @@
   }
   bindToggle('random-rotation', 'randomRotation');
   bindToggle('random-size', 'randomSize');
-  bindToggle('random-opacity', 'randomOpacity');
+
+  // Random opacity toggle also reveals the Min opacity slider
+  const randomOpacityRow = document.getElementById('random-opacity-row');
+  const randomOpacityToggle = document.getElementById('random-opacity');
+  randomOpacityToggle.addEventListener('click', () => {
+    state.randomOpacity = !state.randomOpacity;
+    randomOpacityToggle.classList.toggle('on', state.randomOpacity);
+    randomOpacityToggle.setAttribute('aria-pressed', state.randomOpacity);
+    randomOpacityRow.hidden = !state.randomOpacity;
+    scheduleRender();
+  });
+
+  const randomOpacityMin = document.getElementById('random-opacity-min');
+  const randomOpacityVal = document.getElementById('random-opacity-val');
+  randomOpacityMin.addEventListener('input', e => {
+    state.randomOpacityMin = +e.target.value;
+    randomOpacityVal.textContent = state.randomOpacityMin + '%';
+    scheduleRender();
+  });
+  bindToggle('mono-invert', 'monoInvert');
+
+  // Threshold toggle also shows/hides the level slider
+  const monoThresholdRow = document.getElementById('mono-threshold-row');
+  const monoThresholdToggle = document.getElementById('mono-threshold');
+  monoThresholdToggle.addEventListener('click', () => {
+    state.monoThreshold = !state.monoThreshold;
+    monoThresholdToggle.classList.toggle('on', state.monoThreshold);
+    monoThresholdToggle.setAttribute('aria-pressed', state.monoThreshold);
+    monoThresholdRow.hidden = !state.monoThreshold;
+    scheduleRender();
+  });
+
+  const monoThresholdLevel = document.getElementById('mono-threshold-level');
+  const monoThresholdVal = document.getElementById('mono-threshold-val');
+  monoThresholdLevel.addEventListener('input', e => {
+    state.monoThresholdLevel = +e.target.value;
+    monoThresholdVal.textContent = state.monoThresholdLevel + '%';
+    scheduleRender();
+  });
 
   // ---- Size / Ratio ----
   const widthInput = document.getElementById('width-input');
