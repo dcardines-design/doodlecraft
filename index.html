@@ -696,7 +696,48 @@
   .btn-secondary:hover { background: var(--bg); }
   .btn svg { width: 14px; height: 14px; }
   .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .btn-row.btn-row-3 { grid-template-columns: 1fr 1fr 1fr; }
   .btn-row .btn { padding: 9px 10px; font-size: 12px; }
+
+  .export-quality {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .quality-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .quality-picker {
+    display: flex;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 1px;
+    flex: 1;
+  }
+  .quality-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .quality-btn:hover { color: var(--text); }
+  .quality-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
   .btn.copied { background: #10b981; color: #fff; border-color: #10b981; }
 
   .toast {
@@ -1208,11 +1249,23 @@
     </div>
 
     <div class="sidebar-footer">
+      <div class="export-quality">
+        <span class="quality-label">Scale</span>
+        <div class="quality-picker" id="quality-picker">
+          <button class="quality-btn active" data-scale="1">1x</button>
+          <button class="quality-btn" data-scale="2">2x</button>
+          <button class="quality-btn" data-scale="3">3x</button>
+        </div>
+      </div>
       <button class="btn btn-primary" id="export-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export PNG
       </button>
-      <div class="btn-row">
+      <div class="btn-row btn-row-3">
+        <button class="btn btn-secondary" id="export-svg-btn" title="Export as vector SVG (scalable)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          SVG
+        </button>
         <button class="btn btn-secondary" id="copy-btn" title="Copy image to clipboard">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           Copy
@@ -1488,6 +1541,7 @@
     brightness: 1.0,
     width: 1200,
     height: 1200,
+    exportScale: 1,
   };
 
   // ---- Presets ----
@@ -1914,11 +1968,123 @@
     scheduleRender();
   });
 
+  document.querySelectorAll('.quality-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.exportScale = +btn.dataset.scale;
+      document.querySelectorAll('.quality-btn').forEach(b => {
+        b.classList.toggle('active', b === btn);
+      });
+    });
+  });
+
+  // Render once at state.exportScale, run callback with the high-res canvas,
+  // then restore. All synchronous within one event-loop tick — no visible flicker.
+  function withScaledRender(cb) {
+    const scale = state.exportScale;
+    if (scale === 1) return cb(canvas);
+    const o = { w: state.width, h: state.height, blur: state.blur, grain: state.grain };
+    state.width = Math.round(o.w * scale);
+    state.height = Math.round(o.h * scale);
+    state.blur = o.blur * scale;
+    state.grain = o.grain * scale;
+    render();
+    try { return cb(canvas); }
+    finally {
+      state.width = o.w; state.height = o.h;
+      state.blur = o.blur; state.grain = o.grain;
+      render();
+    }
+  }
+
   exportBtn.addEventListener('click', () => {
+    withScaledRender(c => {
+      const link = document.createElement('a');
+      const tag = state.exportScale === 1 ? '' : `@${state.exportScale}x`;
+      link.download = `gradient-${Date.now()}${tag}.png`;
+      link.href = c.toDataURL('image/png');
+      link.click();
+    });
+  });
+
+  function buildSvg() {
+    const w = state.width;
+    const h = state.height;
+    const minDim = Math.min(w, h);
+    const radius = minDim * state.spread;
+    const baseColor = applyBrightness(state.colors[state.colors.length-1].hex, state.brightness);
+
+    let defs = '';
+    let rects = '';
+
+    for (let idx = state.colors.length - 1; idx >= 0; idx--) {
+      const stop = state.colors[idx];
+      const color = applyBrightness(stop.hex, state.brightness);
+      const { r, g, b } = hexToRgb(color);
+      const cx = (stop.x * w).toFixed(2);
+      const cy = (stop.y * h).toFixed(2);
+      const gid = `g${idx}`;
+
+      if (state.mode === 'mesh') {
+        defs += `<radialGradient id="${gid}" cx="${cx}" cy="${cy}" r="${radius.toFixed(2)}" gradientUnits="userSpaceOnUse">`
+              + `<stop offset="0" stop-color="rgb(${r},${g},${b})" stop-opacity="1"/>`
+              + `<stop offset="0.5" stop-color="rgb(${r},${g},${b})" stop-opacity="0.7"/>`
+              + `<stop offset="1" stop-color="rgb(${r},${g},${b})" stop-opacity="0"/>`
+              + `</radialGradient>`;
+      } else {
+        const r1 = (radius * 1.6).toFixed(2);
+        const a0 = idx === 0 ? 1 : 0.85;
+        defs += `<radialGradient id="${gid}" cx="${cx}" cy="${cy}" r="${r1}" gradientUnits="userSpaceOnUse">`
+              + `<stop offset="0" stop-color="rgb(${r},${g},${b})" stop-opacity="${a0}"/>`
+              + `<stop offset="1" stop-color="rgb(${r},${g},${b})" stop-opacity="0"/>`
+              + `</radialGradient>`;
+      }
+      rects += `<rect width="${w}" height="${h}" fill="url(#${gid})"/>`;
+    }
+
+    let groupAttr = '';
+    if (state.blur > 0) {
+      // Generous filter region so blur isn't clipped at the edges
+      defs += `<filter id="blur" x="-20%" y="-20%" width="140%" height="140%">`
+            + `<feGaussianBlur stdDeviation="${state.blur}"/>`
+            + `</filter>`;
+      groupAttr = ' filter="url(#blur)"';
+    }
+
+    let noiseLayer = '';
+    if (state.noise > 0) {
+      // grain size ↑ → larger noise cells → lower spatial frequency
+      const freq = (1 / Math.max(1, state.grain)).toFixed(3);
+      const alpha = Math.min(1, state.noise * 0.85).toFixed(3);
+      defs += `<filter id="grain" x="0" y="0" width="100%" height="100%">`
+            + `<feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="2" stitchTiles="stitch"/>`
+            + `<feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 ${alpha} 0"/>`
+            + `</filter>`;
+      noiseLayer = `<rect width="${w}" height="${h}" filter="url(#grain)" style="mix-blend-mode:overlay"/>`;
+    }
+
+    const scale = state.exportScale;
+    const outW = Math.round(w * scale);
+    const outH = Math.round(h * scale);
+    return `<?xml version="1.0" encoding="UTF-8"?>\n`
+         + `<svg xmlns="http://www.w3.org/2000/svg" width="${outW}" height="${outH}" viewBox="0 0 ${w} ${h}">`
+         + `<defs>${defs}</defs>`
+         + `<rect width="${w}" height="${h}" fill="${baseColor}"/>`
+         + `<g${groupAttr}>${rects}</g>`
+         + noiseLayer
+         + `</svg>`;
+  }
+
+  const exportSvgBtn = document.getElementById('export-svg-btn');
+  exportSvgBtn.addEventListener('click', () => {
+    const svg = buildSvg();
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.download = `gradient-${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
+    const tag = state.exportScale === 1 ? '' : `@${state.exportScale}x`;
+    link.download = `gradient-${Date.now()}${tag}.svg`;
+    link.href = url;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
   const copyBtn = document.getElementById('copy-btn');
@@ -1933,7 +2099,9 @@
   }
   copyBtn.addEventListener('click', async () => {
     try {
-      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const blob = await new Promise(res => {
+        withScaledRender(c => c.toBlob(res, 'image/png'));
+      });
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       copyBtn.classList.add('copied');
       copyBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied`;

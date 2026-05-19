@@ -854,7 +854,48 @@
   .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
   .btn-secondary:hover { background: var(--bg); }
   .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .btn-row.btn-row-3 { grid-template-columns: 1fr 1fr 1fr; }
   .btn-row .btn { padding: 9px 10px; font-size: 12px; }
+
+  .export-quality {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .quality-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .quality-picker {
+    display: flex;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 1px;
+    flex: 1;
+  }
+  .quality-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .quality-btn:hover { color: var(--text); }
+  .quality-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
   .btn svg { width: 14px; height: 14px; }
   .btn.copied { background: #10b981; color: #fff; border-color: #10b981; }
   .btn.recording {
@@ -1149,6 +1190,14 @@
     </div>
 
     <div class="sidebar-footer">
+      <div class="export-quality">
+        <span class="quality-label">Scale</span>
+        <div class="quality-picker" id="quality-picker">
+          <button class="quality-btn active" data-scale="1">1x</button>
+          <button class="quality-btn" data-scale="2">2x</button>
+          <button class="quality-btn" data-scale="3">3x</button>
+        </div>
+      </div>
       <button class="btn btn-primary" id="export-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export PNG
@@ -1157,7 +1206,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
         <span id="export-video-label">Export video</span>
       </button>
-      <div class="btn-row">
+      <div class="btn-row btn-row-3">
+        <button class="btn btn-secondary" id="export-svg-btn" title="Export as vector SVG (scalable)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          SVG
+        </button>
         <button class="btn btn-secondary" id="copy-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           Copy
@@ -1251,6 +1304,7 @@
     grain: 1.0,
     width: 1200,
     height: 1200,
+    exportScale: 1,
   };
 
   const DEFAULT_SHAPES = ['circle', 'square', 'triangle', 'line', 'x', 'star', 'heart'];
@@ -1552,12 +1606,104 @@
       fill = state.fg;
     }
 
+    if (_svgCollector) {
+      const shape = svgShape(sz, fill);
+      if (!shape) return;
+      const finalAlpha = alpha * monoAlpha;
+      if (finalAlpha < 0.005) return;
+      const rotDeg = (rot * 180 / Math.PI).toFixed(2);
+      const opAttr = finalAlpha < 0.999 ? ` opacity="${finalAlpha.toFixed(3)}"` : '';
+      _svgCollector.push(`<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) rotate(${rotDeg})"${opAttr}>${shape}</g>`);
+      return;
+    }
+
     ctx.save();
     ctx.globalAlpha = alpha * monoAlpha;
     ctx.translate(tx, ty);
     ctx.rotate(rot);
     drawDefaultShape(sz, fill);
     ctx.restore();
+  }
+
+  // SVG export collector — when non-null, placeTile pushes <g> elements instead of drawing
+  let _svgCollector = null;
+
+  function svgShape(sz, fill) {
+    const r = sz / 2;
+    switch (state.defaultShape) {
+      case 'circle':
+        return `<circle r="${r.toFixed(2)}" fill="${fill}"/>`;
+      case 'square':
+        return `<rect x="${(-r).toFixed(2)}" y="${(-r).toFixed(2)}" width="${sz.toFixed(2)}" height="${sz.toFixed(2)}" fill="${fill}"/>`;
+      case 'triangle': {
+        const a = (r * 0.866).toFixed(2);
+        const b = (r * 0.5).toFixed(2);
+        return `<polygon points="0,${(-r).toFixed(2)} ${a},${b} ${-a},${b}" fill="${fill}"/>`;
+      }
+      case 'line': {
+        return `<rect x="${(-sz * 0.18).toFixed(2)}" y="${(-sz * 0.9).toFixed(2)}" width="${(sz * 0.36).toFixed(2)}" height="${(sz * 1.8).toFixed(2)}" fill="${fill}"/>`;
+      }
+      case 'x': {
+        const a = (r * 0.7).toFixed(2);
+        const w = (sz * 0.22).toFixed(2);
+        return `<path d="M${-a},${-a} L${a},${a} M${a},${-a} L${-a},${a}" stroke="${fill}" stroke-width="${w}" stroke-linecap="round" fill="none"/>`;
+      }
+      case 'star':
+        return svgStar(0, 0, 5, r, r * 0.4, fill);
+      case 'heart': {
+        const s = r;
+        return `<path d="M0,${(s * 0.7).toFixed(2)} C${s.toFixed(2)},${(s * 0.2).toFixed(2)} ${s.toFixed(2)},${(-s * 0.4).toFixed(2)} 0,${(-s * 0.05).toFixed(2)} C${(-s).toFixed(2)},${(-s * 0.4).toFixed(2)} ${(-s).toFixed(2)},${(s * 0.2).toFixed(2)} 0,${(s * 0.7).toFixed(2)} Z" fill="${fill}"/>`;
+      }
+    }
+    return '';
+  }
+
+  function svgStar(cx, cy, spikes, outer, inner, fill) {
+    let rot = Math.PI / 2 * 3;
+    const step = Math.PI / spikes;
+    const pts = [];
+    for (let i = 0; i < spikes; i++) {
+      pts.push(`${(cx + Math.cos(rot) * outer).toFixed(2)},${(cy + Math.sin(rot) * outer).toFixed(2)}`);
+      rot += step;
+      pts.push(`${(cx + Math.cos(rot) * inner).toFixed(2)},${(cy + Math.sin(rot) * inner).toFixed(2)}`);
+      rot += step;
+    }
+    return `<polygon points="${pts.join(' ')}" fill="${fill}"/>`;
+  }
+
+  function buildSvg() {
+    const w = state.width, h = state.height;
+    const collector = [];
+    _svgCollector = collector;
+    try {
+      seed(42);
+      drawLayout(w, h);
+    } finally {
+      _svgCollector = null;
+    }
+
+    let defs = '';
+    let noiseLayer = '';
+    if (state.noise > 0) {
+      const freq = (1 / Math.max(1, state.grain)).toFixed(3);
+      const alpha = Math.min(1, state.noise * 0.85).toFixed(3);
+      defs = `<defs><filter id="grain" x="0" y="0" width="100%" height="100%">`
+           + `<feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="2" stitchTiles="stitch"/>`
+           + `<feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 ${alpha} 0"/>`
+           + `</filter></defs>`;
+      noiseLayer = `<rect width="${w}" height="${h}" filter="url(#grain)" style="mix-blend-mode:overlay"/>`;
+    }
+
+    const scale = state.exportScale;
+    const outW = Math.round(w * scale);
+    const outH = Math.round(h * scale);
+    return `<?xml version="1.0" encoding="UTF-8"?>\n`
+         + `<svg xmlns="http://www.w3.org/2000/svg" width="${outW}" height="${outH}" viewBox="0 0 ${w} ${h}">`
+         + defs
+         + `<rect width="${w}" height="${h}" fill="${state.bg}"/>`
+         + collector.join('')
+         + noiseLayer
+         + `</svg>`;
   }
 
   function sampleLuminance(x, y) {
@@ -2391,11 +2537,54 @@
     toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
   }
 
+  document.querySelectorAll('.quality-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.exportScale = +btn.dataset.scale;
+      document.querySelectorAll('.quality-btn').forEach(b => {
+        b.classList.toggle('active', b === btn);
+      });
+    });
+  });
+
+  // Render once at state.exportScale, run callback with the high-res canvas,
+  // then restore. All synchronous within one event-loop tick — no visible flicker.
+  function withScaledRender(cb) {
+    const scale = state.exportScale;
+    if (scale === 1) return cb(canvas);
+    const o = { w: state.width, h: state.height, size: state.size, grain: state.grain };
+    state.width = Math.round(o.w * scale);
+    state.height = Math.round(o.h * scale);
+    state.size = o.size * scale;
+    state.grain = o.grain * scale;
+    render();
+    try { return cb(canvas); }
+    finally {
+      state.width = o.w; state.height = o.h;
+      state.size = o.size; state.grain = o.grain;
+      render();
+    }
+  }
+
   document.getElementById('export-btn').addEventListener('click', () => {
+    withScaledRender(c => {
+      const link = document.createElement('a');
+      const tag = state.exportScale === 1 ? '' : `@${state.exportScale}x`;
+      link.download = `pattern-${Date.now()}${tag}.png`;
+      link.href = c.toDataURL('image/png');
+      link.click();
+    });
+  });
+
+  document.getElementById('export-svg-btn').addEventListener('click', () => {
+    const svg = buildSvg();
+    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.download = `pattern-${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
+    const tag = state.exportScale === 1 ? '' : `@${state.exportScale}x`;
+    link.download = `pattern-${Date.now()}${tag}.svg`;
+    link.href = url;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
   // ---- Video export (MediaRecorder) ----
@@ -2497,7 +2686,9 @@
   const copyBtn = document.getElementById('copy-btn');
   copyBtn.addEventListener('click', async () => {
     try {
-      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const blob = await new Promise(res => {
+        withScaledRender(c => c.toBlob(res, 'image/png'));
+      });
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       copyBtn.classList.add('copied');
       copyBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied`;
